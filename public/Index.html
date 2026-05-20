@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price Tracker · MCO55762680</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #080d14;
+    --card: #0e1520;
+    --border: #182333;
+    --green: #00e676;
+    --red: #ff4d4d;
+    --yellow: #ffc400;
+    --muted: #3d5470;
+    --text: #dce8f5;
+    --sub: #7a9ab8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    padding: 14px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: #0a1018;
+  }
+  .logo { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 3px; color: var(--green); display: flex; align-items: center; gap: 10px; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+
+  .wa-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 14px; border-radius: 20px;
+    border: 1px solid var(--border); font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace; color: var(--muted);
+    transition: all .3s;
+  }
+  .wa-pill.on { border-color: #1a3d28; color: var(--green); background: #0a1f13; }
+  .wa-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+  .wa-pill.on .wa-pill-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+  /* LAYOUT */
+  main { max-width: 720px; margin: 0 auto; padding: 32px 20px; }
+
+  /* PRODUCT HEADER */
+  .product-header {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; margin-bottom: 16px;
+  }
+  .product-label { font-size: 10px; letter-spacing: 3px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 8px; }
+  .product-link { font-size: 12px; color: var(--sub); font-family: 'IBM Plex Mono', monospace; word-break: break-all; text-decoration: none; }
+  .product-link:hover { color: var(--green); }
+
+  /* PRICE DISPLAY */
+  .price-block {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .price-main { }
+  .price-label { font-size: 10px; letter-spacing: 3px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 6px; }
+  .price-value { font-size: 42px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--text); line-height: 1; transition: color .4s; }
+  .price-value.up { color: var(--red); }
+  .price-value.down { color: var(--green); }
+  .price-currency { font-size: 18px; color: var(--muted); vertical-align: super; margin-right: 4px; }
+  .price-cop { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
+
+  .price-meta { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .last-check { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .check-btn {
+    padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--sub); font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 2px; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .check-btn:hover { border-color: var(--green); color: var(--green); }
+  .check-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* CHART */
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 24px; margin-bottom: 16px;
+  }
+  .chart-title { font-size: 10px; letter-spacing: 3px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 16px; }
+  #chartWrap { position: relative; height: 120px; }
+  canvas { width: 100% !important; }
+
+  /* PHONE CONFIG */
+  .phone-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 24px; margin-bottom: 16px;
+  }
+  .phone-title { font-size: 10px; letter-spacing: 3px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px; }
+  .phone-row { display: flex; gap: 10px; }
+  input {
+    flex: 1; background: #080d14; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px; padding: 9px 14px; outline: none; transition: border .2s;
+  }
+  input:focus { border-color: var(--green); }
+  input::placeholder { color: var(--muted); }
+  .save-btn {
+    padding: 9px 20px; border-radius: 8px; background: var(--green);
+    border: none; color: #080d14; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 2px; font-weight: 600; cursor: pointer;
+    transition: background .2s;
+  }
+  .save-btn:hover { background: #00ff88; }
+
+  /* ALERTS LOG */
+  .alerts-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 24px;
+  }
+  .alerts-title { font-size: 10px; letter-spacing: 3px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px; }
+  .alert-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    animation: fadein .3s ease;
+  }
+  @keyframes fadein { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .alert-row:last-child { border-bottom: none; }
+  .alert-prices { font-family: 'IBM Plex Mono', monospace; }
+  .alert-arrow { color: var(--muted); margin: 0 6px; }
+  .alert-up { color: var(--red); }
+  .alert-down { color: var(--green); }
+  .alert-time { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .no-alerts { font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; text-align: center; padding: 20px 0; }
+
+  /* CRON INFO */
+  .cron-info {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    padding: 12px 0; justify-content: center;
+  }
+  .cron-icon { color: var(--green); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--card); border: 1px solid var(--green);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--green); z-index: 999;
+    animation: fadein .3s ease; max-width: 300px;
+  }
+  .toast.err { border-color: var(--red); color: var(--red); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin .7s linear infinite; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><div class="pulse"></div>PRICE_TRACKER</div>
+  <div class="wa-pill" id="waPill"><div class="wa-pill-dot"></div><span id="waText">WhatsApp</span></div>
+</nav>
+
+<main>
+
+  <!-- PRODUCTO -->
+  <div class="product-header">
+    <div class="product-label">PRODUCTO_MONITOREADO</div>
+    <a class="product-link" href="https://www.mercadolibre.com.co/p/MCO55762680?pdp_filters=item_id:MCO1824720703" target="_blank">
+      mercadolibre.com.co/p/MCO55762680 ↗
+    </a>
+  </div>
+
+  <!-- PRECIO ACTUAL -->
+  <div class="price-block">
+    <div class="price-main">
+      <div class="price-label">PRECIO_ACTUAL</div>
+      <div class="price-value" id="priceDisplay">
+        <span class="price-currency">$</span><span id="priceNum">—</span>
+      </div>
+      <div class="price-cop" id="priceCOP"></div>
+    </div>
+    <div class="price-meta">
+      <div class="last-check" id="lastCheck">Sin datos aún</div>
+      <button class="check-btn" id="checkBtn" onclick="checkNow()">
+        <span id="checkIcon">↻</span> REVISAR AHORA
+      </button>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-card">
+    <div class="chart-title">HISTORIAL_DE_PRECIO</div>
+    <div id="chartWrap">
+      <canvas id="chart"></canvas>
+    </div>
+    <div id="noHistory" style="text-align:center;padding:30px 0;font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;display:none">
+      Sin historial aún — los datos aparecen tras la primera revisión
+    </div>
+  </div>
+
+  <!-- TELÉFONO -->
+  <div class="phone-card">
+    <div class="phone-title">📱 WHATSAPP_ALERTAS</div>
+    <div class="phone-row">
+      <input type="text" id="phoneInput" placeholder="+57 300 123 4567" />
+      <button class="save-btn" onclick="savePhone()">GUARDAR</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">
+      Recibirás un mensaje cada vez que el precio cambie
+    </div>
+  </div>
+
+  <!-- ALERTAS ENVIADAS -->
+  <div class="alerts-card">
+    <div class="alerts-title">ALERTAS_ENVIADAS</div>
+    <div id="alertsList"><div class="no-alerts">Sin alertas enviadas aún</div></div>
+  </div>
+
+  <!-- CRON INFO -->
+  <div class="cron-info">
+    <span class="cron-icon">⏱</span>
+    Revisión automática cada 6 horas · próxima: <span id="nextCheck">calculando...</span>
+  </div>
+
+</main>
+
+<script>
+const COP = n => '$' + Math.round(n).toLocaleString('es-CO');
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const diff = (Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z'))) / 1000;
+  if (diff < 60) return 'hace un momento';
+  if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
+  if (diff < 86400) return `hace ${Math.floor(diff/3600)} h`;
+  return `hace ${Math.floor(diff/86400)} d`;
+}
+function nextCheckIn(lastCheckISO) {
+  if (!lastCheckISO) return '—';
+  const next = new Date(new Date(lastCheckISO + (lastCheckISO.endsWith('Z') ? '' : 'Z')).getTime() + 6*3600*1000);
+  const diff = (next - Date.now()) / 1000;
+  if (diff <= 0) return 'próximamente';
+  const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60);
+  return h > 0 ? `en ${h}h ${m}m` : `en ${m}m`;
+}
+
+function toast(msg, type='ok') {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'err' ? ' err' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── CHART ──────────────────────────────────────────────────────────────────
+let chartInstance = null;
+function drawChart(history) {
+  const wrap = document.getElementById('chartWrap');
+  const noH = document.getElementById('noHistory');
+  if (!history || history.length < 2) {
+    wrap.style.display = 'none';
+    noH.style.display = 'block';
+    return;
+  }
+  wrap.style.display = 'block';
+  noH.style.display = 'none';
+
+  const labels = history.map(h => {
+    const d = new Date(h.recorded_at + (h.recorded_at.endsWith('Z') ? '' : 'Z'));
+    return `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:00`;
+  });
+  const prices = history.map(h => h.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+
+  if (chartInstance) chartInstance.destroy();
+
+  // Gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, 120);
+  grad.addColorStop(0, 'rgba(0,230,118,.25)');
+  grad.addColorStop(1, 'rgba(0,230,118,0)');
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: prices,
+        borderColor: '#00e676',
+        borderWidth: 2,
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.3,
+        pointRadius: prices.map((_, i) => i === prices.length - 1 ? 4 : 0),
+        pointBackgroundColor: '#00e676',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#0e1520',
+        borderColor: '#182333',
+        borderWidth: 1,
+        titleColor: '#7a9ab8',
+        bodyColor: '#dce8f5',
+        bodyFont: { family: 'IBM Plex Mono' },
+        callbacks: { label: ctx => ' ' + COP(ctx.parsed.y) }
+      }},
+      scales: {
+        x: { grid: { color: '#182333' }, ticks: { color: '#3d5470', font: { family: 'IBM Plex Mono', size: 10 }, maxTicksLimit: 6 }},
+        y: {
+          grid: { color: '#182333' },
+          ticks: { color: '#3d5470', font: { family: 'IBM Plex Mono', size: 10 }, callback: v => COP(v) },
+          min: Math.floor(minP * 0.99),
+          max: Math.ceil(maxP * 1.01),
+        }
+      }
+    }
+  });
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+let prevPrice = null;
+function render(data) {
+  // Precio
+  const pNum = document.getElementById('priceNum');
+  const pVal = document.getElementById('priceDisplay');
+  const pCOP = document.getElementById('priceCOP');
+  if (data.current_price) {
+    pNum.textContent = Math.round(data.current_price).toLocaleString('es-CO');
+    pCOP.textContent = 'COP';
+    if (prevPrice && data.current_price !== prevPrice) {
+      pVal.classList.add(data.current_price > prevPrice ? 'up' : 'down');
+      setTimeout(() => pVal.classList.remove('up', 'down'), 2000);
+    }
+    prevPrice = data.current_price;
+  }
+
+  // Last check
+  document.getElementById('lastCheck').textContent =
+    data.last_check ? `revisado ${timeAgo(data.last_check)}` : 'Sin revisión aún';
+
+  // Next check
+  document.getElementById('nextCheck').textContent = nextCheckIn(data.last_check);
+
+  // Teléfono
+  if (data.phone) document.getElementById('phoneInput').value = data.phone;
+
+  // Chart
+  drawChart(data.history);
+
+  // Alertas
+  const list = document.getElementById('alertsList');
+  if (!data.alerts || !data.alerts.length) {
+    list.innerHTML = '<div class="no-alerts">Sin alertas enviadas aún</div>';
+  } else {
+    list.innerHTML = data.alerts.map(a => {
+      const down = a.new_price < (a.old_price || a.new_price + 1);
+      const arrow = a.old_price
+        ? `<span class="alert-arrow">→</span><span class="${down ? 'alert-down' : 'alert-up'}">${COP(a.new_price)}</span>`
+        : `<span class="${down ? 'alert-down' : 'alert-up'}">${COP(a.new_price)}</span>`;
+      return `<div class="alert-row">
+        <div class="alert-prices">
+          ${a.old_price ? `<span style="color:var(--muted)">${COP(a.old_price)}</span>${arrow}` : arrow}
+          ${down ? ' 📉' : ' 📈'}
+        </div>
+        <div class="alert-time">${timeAgo(a.sent_at)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // WA status
+  checkWAStatus();
+}
+
+// ── LOAD DATA ──────────────────────────────────────────────────────────────
+async function load() {
+  try {
+    const data = await fetch('/api/status').then(r => r.json());
+    render(data);
+  } catch(e) { console.error(e); }
+}
+
+async function checkNow() {
+  const btn = document.getElementById('checkBtn');
+  const icon = document.getElementById('checkIcon');
+  btn.disabled = true;
+  icon.className = 'spin';
+  icon.textContent = '↻';
+  try {
+    const data = await fetch('/api/check', { method: 'POST' }).then(r => r.json());
+    if (data.price) toast(`Precio: ${COP(data.price)}`);
+    else toast('No se pudo obtener el precio', 'err');
+    await load();
+  } catch { toast('Error al revisar', 'err'); }
+  finally { btn.disabled = false; icon.className = ''; icon.textContent = '↻'; }
+}
+
+async function savePhone() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  if (!phone) { toast('Ingresa un número', 'err'); return; }
+  await fetch('/api/phone', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  });
+  toast('✅ Número guardado');
+}
+
+async function checkWAStatus() {
+  try {
+    const { connected } = await fetch('/api/openwa/status').then(r => r.json());
+    const pill = document.getElementById('waPill');
+    const txt  = document.getElementById('waText');
+    pill.className = 'wa-pill' + (connected ? ' on' : '');
+    txt.textContent = connected ? 'WhatsApp ✓' : 'WhatsApp';
+  } catch {}
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+// Cargar Chart.js dinámicamente
+const s = document.createElement('script');
+s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+s.onload = load;
+document.head.appendChild(s);
+
+setInterval(load, 60000);          // refresca UI cada minuto
+setInterval(checkWAStatus, 30000); // revisa WA cada 30s
+</script>
+</body>
+      </html>
+    
