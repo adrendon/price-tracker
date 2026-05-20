@@ -3,6 +3,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const cron = require('node-cron');
 const Database = require('better-sqlite3');
+const { chromium } = require('playwright');
 const path = require('path');
 
 const app = express();
@@ -46,7 +47,57 @@ function setConfig(key, value) {
 }
 
 // ─── SCRAPER MERCADOLIBRE COLOMBIA ────────────────────────────────────────────
-async function scrapePrice() {
+function extractPriceFromHtml(html) {
+  const $ = cheerio.load(html);
+
+  const ldScripts = $('script[type="application/ld+json"]').toArray();
+  for (const s of ldScripts) {
+    try {
+      const json = JSON.parse($(s).html());
+      const items = Array.isArray(json) ? json : [json];
+      for (const item of items) {
+        if (item['@type'] === 'Product' && item.offers) {
+          const offers = Array.isArray(item.offers) ? item.offers : [item.offers];
+          const prices = offers.map(o => parseFloat(o.price)).filter(p => !isNaN(p) && p > 1000);
+          if (prices.length) return Math.min(...prices);
+        }
+      }
+    } catch {}
+  }
+
+  const selectors = [
+    '.ui-pdp-price__second-line .andes-money-amount__fraction',
+    '.poly-price__current .andes-money-amount__fraction',
+    '.ui-pdp-price .andes-money-amount__fraction',
+    '.andes-money-amount__fraction',
+  ];
+  for (const sel of selectors) {
+    const els = $(sel);
+    for (let i = 0; i < els.length; i++) {
+      const raw = $(els[i]).text().replace(/\./g, '').replace(',', '.').trim();
+      const price = parseFloat(raw);
+      if (!isNaN(price) && price > 10000) return price;
+    }
+  }
+
+  for (const el of $('script').toArray()) {
+    const content = $(el).html() || '';
+    for (const key of ['__PRELOADED_STATE__', '__INITIAL_STATE__']) {
+      if (!content.includes(key)) continue;
+      const match = content.match(new RegExp(`${key}\\s*=\\s*(\\{[\\s\\S]+\\})\\s*;?`));
+      if (!match) continue;
+
+      try {
+        const price = findPriceInObject(JSON.parse(match[1]));
+        if (price) return price;
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
+async function scrapePriceWithHttp() {
   try {
     const { data } = await axios.get(PRODUCT_URL, {
       headers: {
@@ -57,63 +108,50 @@ async function scrapePrice() {
       },
       timeout: 20000,
       maxRedirects: 5,
+      validateStatus: () => true,
     });
 
-    const $ = cheerio.load(data);
-
-    // Estrategia 1: JSON-LD schema.org (más confiable)
-    const ldScripts = $('script[type="application/ld+json"]').toArray();
-    for (const s of ldScripts) {
-      try {
-        const json = JSON.parse($(s).html());
-        const items = Array.isArray(json) ? json : [json];
-        for (const item of items) {
-          if (item['@type'] === 'Product' && item.offers) {
-            const offers = Array.isArray(item.offers) ? item.offers : [item.offers];
-            const prices = offers.map(o => parseFloat(o.price)).filter(p => !isNaN(p) && p > 1000);
-            if (prices.length) return Math.min(...prices);
-          }
-        }
-      } catch {}
-    }
-
-    // Estrategia 2: selectores DOM de ML Colombia
-    const selectors = [
-      '.ui-pdp-price__second-line .andes-money-amount__fraction',
-      '.poly-price__current .andes-money-amount__fraction',
-      '.ui-pdp-price .andes-money-amount__fraction',
-      '.andes-money-amount__fraction',
-    ];
-    for (const sel of selectors) {
-      const els = $(sel);
-      for (let i = 0; i < els.length; i++) {
-        const raw = $(els[i]).text().replace(/\./g, '').replace(',', '.').trim();
-        const price = parseFloat(raw);
-        if (!isNaN(price) && price > 10000) return price; // COP siempre > 10.000
-      }
-    }
-
-    // Estrategia 3: buscar en __PRELOADED_STATE__
-    $('script').each((_, el) => {
-      const content = $(el).html() || '';
-      ['__PRELOADED_STATE__', '__INITIAL_STATE__'].forEach(key => {
-        if (content.includes(key)) {
-          try {
-            const match = content.match(new RegExp(`${key}\\s*=\\s*(\\{.+\\})`));
-            if (match) {
-              const price = findPriceInObject(JSON.parse(match[1]));
-              if (price) return price;
-            }
-          } catch {}
-        }
-      });
-    });
-
-    return null;
+    return typeof data === 'string' ? extractPriceFromHtml(data) : null;
   } catch (err) {
-    console.error('[SCRAPER] Error:', err.message);
+    console.error('[SCRAPER:HTTP] Error:', err.message);
     return null;
   }
+}
+
+async function scrapePriceWithBrowser() {
+  let browser;
+
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+
+    const page = await browser.newPage({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      locale: 'es-CO',
+    });
+
+    await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+
+    return extractPriceFromHtml(await page.content());
+  } catch (err) {
+    console.error('[SCRAPER:BROWSER] Error:', err.message);
+    return null;
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+}
+
+async function scrapePrice() {
+  const httpPrice = await scrapePriceWithHttp();
+  if (httpPrice) return httpPrice;
+
+  console.warn('[SCRAPER] Fallback a navegador real');
+  return scrapePriceWithBrowser();
 }
 
 function findPriceInObject(obj, depth = 0) {
