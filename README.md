@@ -5,30 +5,56 @@ y envía una alerta de WhatsApp cada vez que el precio cambia.
 
 ---
 
-## Deploy en Railway (paso a paso)
+## Deploy en Render (paso a paso)
 
 ### Paso 1 — Levanta OpenWA
 
-1. En Railway → **New Project → Deploy from GitHub Repo**
-2. Repo: `https://github.com/rmyndharis/OpenWA`
-3. Una vez desplegado, abre el dashboard de OpenWA en el puerto `2886`
-4. Crea una sesión llamada `default`, haz clic en **Start** y escanea el QR con tu WhatsApp
-5. Ve a **Settings → API Keys** → crea una key y cópiala
+Ya tienes una instancia disponible:
+
+- URL: `https://openwa-vd0n.onrender.com/`
+- API Key: `dev-admin-key`
+- Sesión: `default`
+
+Si necesitas abrir o reconectar la sesión, entra al dashboard de OpenWA, inicia `default` y escanea el QR con tu WhatsApp.
 
 ### Paso 2 — Levanta este price tracker
 
 1. Sube esta carpeta a un repo tuyo en GitHub
-2. En Railway → **New Project → Deploy from GitHub Repo** → tu repo
-3. Agrega estas variables de entorno en **Variables**:
+2. En Render → **New + → Web Service** → conecta tu repo
+3. Configura:
 
 ```
-OPENWA_URL      = https://tu-openwa.up.railway.app
-OPENWA_API_KEY  = la_key_del_paso_1
+Node Version: 20
+Build Command: npm install
+Start Command: npm start
+```
+
+4. Agrega estas variables de entorno:
+
+```
+OPENWA_URL      = https://openwa-vd0n.onrender.com
+OPENWA_API_KEY  = dev-admin-key
 OPENWA_SESSION  = default
+PORT            = 3000
 ```
 
-4. Railway detecta el `package.json` y corre `npm start` solo
-5. En **Settings → Networking** genera un dominio público y ábrelo
+5. Opcional pero recomendado: crea un **Persistent Disk** y usa una ruta para la base SQLite, por ejemplo:
+
+```
+DB_PATH=/var/data/tracker.db
+```
+
+Sin disco persistente, Render puede reiniciar la app y perder el historial y el número configurado.
+
+6. Abre el dominio público del servicio cuando termine el deploy
+
+### Si Render falla al compilar
+
+Si en los logs ves que Render intenta usar Node 26, la compilación de `better-sqlite3` puede fallar. Este repo debe correr con **Node 20**.
+
+- Verifica que Render tome el `engines.node` del `package.json`
+- Si tu servicio ya estaba creado, fuerza en Settings la versión `20`
+- Usa `npm install` como build command en lugar del valor automático
 
 ### Paso 3 — Configura tu número
 
