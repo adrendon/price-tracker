@@ -1,0 +1,23 @@
+{
+  "name": "price-tracker-mco",
+  "version": "1.0.0",
+  "description": "Price tracker para MCO55762680 con alertas WhatsApp",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "better-sqlite3": "^9.6.0",
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
